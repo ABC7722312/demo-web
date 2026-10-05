@@ -1,0 +1,61 @@
+/* ===== 色（ここを変えるとサイト全体の色が変わります） ===== */
+:root{--bg:#f6f7f5;--card:#fff;--fg:#1f2527;--sub:#5b6569;--line:#dde1de;--ac:#2a5c62;--ac-bg:#e8f1f1;--on-ac:#fff}
+@media(prefers-color-scheme:dark){:root{--bg:#151a1b;--card:#1d2324;--fg:#e9ecea;--sub:#a4aeb0;--line:#2e3638;--ac:#8cc4ca;--ac-bg:#243436;--on-ac:#10191a}}
+
+/* ===== 基本 ===== */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.9 "Hiragino Sans","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;-webkit-text-size-adjust:100%;overflow-wrap:anywhere;line-break:strict}
+a{color:var(--ac);text-underline-offset:3px}
+a:focus-visible{outline:3px solid var(--ac);outline-offset:2px;border-radius:2px}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;z-index:20;background:var(--card);padding:8px 12px}
+
+/* ===== ヘッダー・フッター ===== */
+.site-header{position:sticky;top:0;z-index:10;background:var(--card);border-bottom:1px solid var(--line)}
+.site-header .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0 24px}
+.brand{display:flex;align-items:center;gap:10px;padding:12px 0;font-weight:700;color:var(--fg);text-decoration:none}
+.brand img{width:28px;height:28px}
+.site-nav{display:flex;gap:4px}
+.site-nav a{padding:14px 12px;font-weight:700;font-size:.95rem;color:var(--fg);text-decoration:none;border-bottom:3px solid transparent}
+.site-nav a:hover,.site-nav a[aria-current]{color:var(--ac);border-bottom-color:var(--ac)}
+.site-footer{margin-top:48px;padding:28px 0;border-top:1px solid var(--line);background:var(--card);color:var(--sub);font-size:.85rem;text-align:center}
+
+/* ===== トップページ ===== */
+.hero{padding:56px 0 40px;background:var(--ac-bg);border-bottom:1px solid var(--line)}
+.hero .label{margin:0 0 8px;font-size:.85rem;font-weight:700;letter-spacing:.12em;color:var(--ac)}
+.hero h1{margin:0 0 16px;font-size:2rem;line-height:1.4}
+.hero p{margin:0;max-width:34em}
+.section{padding-top:48px}
+.section>.wrap>h2{margin:0 0 20px;font-size:1.3rem;line-height:1.5;padding-left:12px;border-left:4px solid var(--ac)}
+.info{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.info div{display:flex;flex-wrap:wrap;gap:2px 24px;padding:16px 24px}
+.info div+div{border-top:1px solid var(--line)}
+.info dt{width:6em;color:var(--sub);font-weight:700}
+.info dd{margin:0;flex:1;min-width:12em}
+.card{display:block;padding:20px 24px;background:var(--card);border:1px solid var(--line);border-radius:12px;color:var(--fg);text-decoration:none}
+.card:hover{border-color:var(--ac);background:var(--ac-bg)}
+.card strong{display:block;color:var(--ac);line-height:1.6}
+.card span{display:block;margin-top:4px;color:var(--sub);font-size:.92rem}
+
+/* ===== 下層ページ・記事 ===== */
+.page{max-width:720px;margin:0 auto;padding:32px 20px 0}
+.crumb{margin:0 0 24px;font-size:.85rem;color:var(--sub)}
+.crumb a{color:var(--sub)}
+.page h1{margin:0 0 24px;font-size:1.6rem;line-height:1.5}
+.article h2{margin:44px 0 12px;padding-bottom:8px;font-size:1.25rem;line-height:1.5;border-bottom:2px solid var(--ac)}
+.article p,.article ul{margin:0 0 1.1em}
+.lead{padding:16px 20px;background:var(--card);border:1px solid var(--line);border-radius:8px}
+.article ul{padding-left:1.4em}
+.note{margin-top:40px;padding:16px 20px;background:var(--card);border:1px solid var(--line);border-radius:8px;font-size:.85rem;line-height:1.8;color:var(--sub)}
+.note p{margin:0 0 .6em}.note p:last-child{margin:0}
+.back{margin-top:32px}
+
+/* ===== スマホ ===== */
+@media(max-width:560px){
+  .hero{padding:40px 0 32px}.hero h1{font-size:1.6rem}
+  .page h1{font-size:1.4rem}
+  .info div{padding:14px 18px}.card{padding:18px}
+  .site-nav{width:100%;margin-bottom:-1px}.site-nav a{flex:1;text-align:center}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
