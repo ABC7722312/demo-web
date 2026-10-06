@@ -1,17 +1,35 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>麻雀点数計算</title>
-<style>:root{--bg:#fff;--fg:#1a1a1a;--bd:#ccc}@media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--fg:#eee;--bd:#444}}
-body{font:15px system-ui;background:var(--bg);color:var(--fg);max-width:720px;margin:auto;padding:12px}
-input,select,button{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:6px;margin:2px}
-label{display:inline-block;margin:2px 8px 2px 0}#pal button{min-width:38px}.err{color:#d33}#go{width:100%;padding:12px;font-weight:700}</style></head><body>
-<h1>麻雀点数計算</h1><div id="pal"></div>
-<p>手牌(和了牌含む・鳴き除く) <input id="hand" data-tile="1" size="30" placeholder="234m234567p789s55s">　和了牌 <input id="win" size="4" value="4p"></p>
-<p>鳴き (chi/pon/ankan/minkan/kakan:牌) <input id="melds" size="30" placeholder="chi:123m pon:5z"></p>
-<p>ドラ表示 <input id="dora" size="8"> 裏ドラ表示 <input id="ura" size="8"> 赤は 0 (例 0p)</p>
-<label><input type="checkbox" id="tsumo">ツモ</label><label><input type="checkbox" id="dealer">親</label>
-<label>場風<select id="rw"><option value="0">東</option><option value="1">南</option></select></label>
-<label>自風<select id="sw"><option value="0">東</option><option value="1">南</option><option value="2">西</option><option value="3">北</option></select></label>
-<label>立直<select id="riichi"><option value="0">なし</option><option value="1">立直</option><option value="2">ダブル</option></select></label>
-<label><input type="checkbox" id="ippatsu">一発</label><label><input type="checkbox" id="haitei">海底/河底</label><label><input type="checkbox" id="rinshan">嶺上</label><label><input type="checkbox" id="chankan">槍槓</label>
-<label><input type="checkbox" id="kuitan" checked>喰いタン</label><label><input type="checkbox" id="kiriage">切り上げ満貫</label>
-<label>本場<input id="honba" type="number" value="0" min="0" style="width:56px"></label><label>供託<input id="kyotaku" type="number" value="0" min="0" style="width:56px"></label>
-<button id="go">計算</button><div id="out"></div><script src="app.js"></script></body></html>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--fg:#1b1f24;--mu:#5d6670;--bd:#c9ced6;--ac:#0b6b4a;--acf:#fff;--er:#b3261e;--erb:#fdecea;--ok:#0b6b4a;--m:#c0392b;--p:#1f5fbf;--s:#1d7a46;--z:#333}
+@media(prefers-color-scheme:dark){:root{--bg:#121416;--card:#1c1f23;--fg:#eceff3;--mu:#9aa4af;--bd:#3a4048;--ac:#3ecf9a;--acf:#06281c;--er:#ff8a80;--erb:#3a1c1a;--ok:#3ecf9a;--m:#ff8a7a;--p:#7fb0ff;--s:#62d58f;--z:#ddd}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+header,main{max-width:1080px;margin:auto;padding:0 12px}header{padding-top:10px}h1{font-size:20px;margin:0}header p{margin:0;color:var(--mu);font-size:13px}
+main{display:flex;flex-direction:column;gap:12px;padding-bottom:16px;padding-top:10px}#L,#R{display:contents}
+section{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;min-width:0}
+h2{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}h2 .n{background:var(--fg);color:var(--bg);border-radius:50%;width:22px;height:22px;display:inline-grid;place-items:center;font-size:13px}
+h3{font-size:13px;margin:10px 0 4px;color:var(--mu)}
+.btn{min-height:44px;min-width:44px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;padding:0 12px;cursor:pointer}
+.btn[aria-pressed=true]{border:2px solid var(--ac);font-weight:700;background:color-mix(in srgb,var(--ac) 14%,var(--card))}.btn[aria-pressed=true]::before{content:"✓ "}
+.btn:disabled{opacity:.4;cursor:not-allowed;border-style:dashed}.btn:focus-visible{outline:3px solid var(--p);outline-offset:1px}
+.row{display:flex;flex-wrap:wrap;gap:6px}.row.g{gap:4px}.mu{color:var(--mu);font-size:13px}
+.tile{display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--bd);border-radius:8px;background:var(--card);cursor:pointer;padding:0;font:inherit;color:var(--fg);line-height:1.1;min-height:48px}
+.tile b{font-size:20px}.tile i{font-style:normal;font-size:11px}.t0 b,.t0 i{color:var(--m)}.t1 b,.t1 i{color:var(--p)}.t2 b,.t2 i{color:var(--s)}.t3 b{color:var(--z)}.red{background:#ffe9e6;border-color:var(--m)}@media(prefers-color-scheme:dark){.red{background:#3a1c1a}}
+.tile:disabled{opacity:.3;cursor:not-allowed;border-style:dashed}.tile:focus-visible{outline:3px solid var(--p)}
+.pal{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}.hand .tile{width:40px;height:56px}.mini .tile{width:30px;height:42px;min-height:0;cursor:default}.mini .tile b{font-size:15px}
+.tile.sel{outline:3px solid var(--ac);outline-offset:1px;transform:translateY(-4px)}.tile.win{border:2px solid var(--er)}.badge{font-size:10px;color:var(--er);font-weight:700}
+.tiles{min-height:70px;border:2px dashed var(--bd);border-radius:10px;padding:8px;align-items:flex-end}.tiles.err{border-color:var(--er);background:var(--erb)}.empty{color:var(--mu);align-self:center}
+.meld{display:flex;gap:4px;align-items:center;border:1px solid var(--bd);border-radius:10px;padding:4px 6px}
+.status{font-size:13px;font-weight:700}.status.bad{color:var(--er)}.status.good{color:var(--ok)}
+.primary{width:100%;min-height:56px;font-size:18px;font-weight:800;background:var(--ac);color:var(--acf);border:0;border-radius:12px;cursor:pointer}.primary:disabled{opacity:.45;cursor:not-allowed}.primary:focus-visible{outline:3px solid var(--p);outline-offset:2px}
+#calc{position:sticky;bottom:0;z-index:5;box-shadow:0 -6px 12px rgba(0,0,0,.12)}
+.box{border-radius:12px;padding:12px;border:2px solid}.box.err{background:var(--erb);border-color:var(--er);color:var(--fg)}.fix{margin:6px 0 0;font-weight:700}
+.score{text-align:center;padding:10px;border-radius:12px;border:2px solid var(--ac)}.score.ym{border-width:4px;background:color-mix(in srgb,var(--ac) 12%,var(--card))}
+.tag{display:inline-block;padding:2px 12px;border-radius:99px;background:var(--ac);color:var(--acf);font-weight:800}.pts{font-size:44px;font-weight:900;line-height:1.1}.pts small{font-size:18px}
+table{width:100%;border-collapse:collapse}td{padding:5px 2px;border-bottom:1px solid var(--bd)}td:last-child{text-align:right;white-space:nowrap}.tot td{font-weight:800}
+details{margin-top:6px}summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:700}.stale{opacity:.45}.stale::before{content:"入力が変わりました。再計算してください";display:block;color:var(--er);font-weight:700;opacity:1}
+.step{display:flex;align-items:center;gap:4px}.step span{min-width:2ch;text-align:center;font-weight:700}
+@media(min-width:900px){main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:14px;align-items:start}#L{display:flex;flex-direction:column;gap:12px}#R{display:flex;flex-direction:column;gap:12px;position:sticky;top:10px}#calc{position:static;box-shadow:none;padding:0;border:0;background:none}}
+</style></head><body>
+<header><h1>麻雀点数計算</h1><p>① 手牌を入力 → ③ 和了条件 → ④ 計算（日本式リーチ・4人打ち）</p></header>
+<main><div id="L"><section id="hand"></section><section id="pal"></section><section id="cond"></section></div><div id="R"><section id="calc"></section><section id="res" hidden></section></div></main>
+<script src="app.js"></script></body></html>
