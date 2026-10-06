@@ -1,39 +1,17 @@
-<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css">
-<title>〇〇不動産管理株式会社</title>
-<meta name="description" content="〇〇不動産管理株式会社（模擬サイト）">
-</head>
-<body>
-<a class="skip" href="#main">本文へ移動</a>
-<header class="site-header"><div class="wrap">
-<a class="brand" href="index.html"><img src="favicon.svg" alt="" width="28" height="28">〇〇不動産管理株式会社</a>
-<nav class="site-nav" aria-label="メイン"><a href="index.html" aria-current="page">トップ</a><a href="columns.html">コラム</a></nav>
-</div></header>
-<main id="main">
-<section class="hero"><div class="wrap">
-<p class="label">不動産管理</p>
-<h1>〇〇不動産管理株式会社</h1>
-<p>当社は不動産の管理に関する業務を行っています。住まいと不動産の基本的な知識をわかりやすくお伝えします。</p>
-</div></section>
-<section class="section"><div class="wrap">
-<h2>会社情報</h2>
-<dl class="info">
-<div><dt>会社名</dt><dd>〇〇不動産管理株式会社（仮）</dd></div>
-<div><dt>所在地</dt><dd>〒000-0000 東京都〇〇区〇〇 0-0-0（仮）</dd></div>
-</dl>
-</div></section>
-<section class="section"><div class="wrap">
-<h2>コラム</h2>
-<a class="card" href="column-genjou-kaifuku.html"><strong>賃貸住宅の「原状回復」とは？退去時のトラブルを防ぐ基礎知識</strong><span>退去時の費用負担の考え方と、事前にできる備えを解説します。</span></a>
-<p style="margin:16px 0 0"><a href="columns.html">コラム一覧を見る</a></p>
-</div></section>
-</main>
-<footer class="site-footer"><div class="wrap">© 〇〇不動産管理株式会社（模擬サイト）</div></footer>
-</body>
-</html>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>麻雀点数計算</title>
+<style>:root{--bg:#fff;--fg:#1a1a1a;--bd:#ccc}@media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--fg:#eee;--bd:#444}}
+body{font:15px system-ui;background:var(--bg);color:var(--fg);max-width:720px;margin:auto;padding:12px}
+input,select,button{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:6px;margin:2px}
+label{display:inline-block;margin:2px 8px 2px 0}#pal button{min-width:38px}.err{color:#d33}#go{width:100%;padding:12px;font-weight:700}</style></head><body>
+<h1>麻雀点数計算</h1><div id="pal"></div>
+<p>手牌(和了牌含む・鳴き除く) <input id="hand" data-tile="1" size="30" placeholder="234m234567p789s55s">　和了牌 <input id="win" size="4" value="4p"></p>
+<p>鳴き (chi/pon/ankan/minkan/kakan:牌) <input id="melds" size="30" placeholder="chi:123m pon:5z"></p>
+<p>ドラ表示 <input id="dora" size="8"> 裏ドラ表示 <input id="ura" size="8"> 赤は 0 (例 0p)</p>
+<label><input type="checkbox" id="tsumo">ツモ</label><label><input type="checkbox" id="dealer">親</label>
+<label>場風<select id="rw"><option value="0">東</option><option value="1">南</option></select></label>
+<label>自風<select id="sw"><option value="0">東</option><option value="1">南</option><option value="2">西</option><option value="3">北</option></select></label>
+<label>立直<select id="riichi"><option value="0">なし</option><option value="1">立直</option><option value="2">ダブル</option></select></label>
+<label><input type="checkbox" id="ippatsu">一発</label><label><input type="checkbox" id="haitei">海底/河底</label><label><input type="checkbox" id="rinshan">嶺上</label><label><input type="checkbox" id="chankan">槍槓</label>
+<label><input type="checkbox" id="kuitan" checked>喰いタン</label><label><input type="checkbox" id="kiriage">切り上げ満貫</label>
+<label>本場<input id="honba" type="number" value="0" min="0" style="width:56px"></label><label>供託<input id="kyotaku" type="number" value="0" min="0" style="width:56px"></label>
+<button id="go">計算</button><div id="out"></div><script src="app.js"></script></body></html>
