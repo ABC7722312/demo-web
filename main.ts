@@ -1,10 +1,14 @@
 import { calculateScore, MeldType, Result, Fail } from './core';
+import { newPlayers, setSeat, moveSeat, ranks, label, bySeat, find, settle, applyDeltas, winContext, SEAT_NAMES, DEFAULT_NAMES, Transfer } from './table';
+interface HistItem { n: number; winner: number; seatW: number; discarder: number; seatD: number; tsumo: boolean; limit: string; score: number; han: number; fu: number; deltas: Record<number, number> }
+const esc = (t: string) => t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+const lbl = (p: { name: string; seat: number }) => esc(label({ id: 0, points: 0, riichi: 0, ...p }));
 interface T { uid: number; id: number; aka: boolean }
 interface M { type: MeldType; id: number; aka: number }
 const SUIT = ['萬', '筒', '索'], HZ = ['東', '南', '西', '北', '白', '發', '中'];
 const MN: Record<MeldType, string> = { chi: 'チー', pon: 'ポン', ankan: '暗槓', minkan: '大明槓', kakan: '加槓' };
 const init = () => ({ hand: [] as T[], melds: [] as M[], dora: [] as number[], ura: [] as number[], win: -1, sel: -1, uid: 1, mode: 'hand', mtype: 'chi' as MeldType,
-  maka: false, tsumo: false, rw: 0, sw: 1, riichi: 0, ippatsu: false, haitei: false, rinshan: false, chankan: false, honba: 0, kyotaku: 0, kuitan: true, kiriage: false });
+  maka: false, tsumo: false, rw: 0, players: newPlayers(), winner: 2, discarder: 0, history: [] as HistItem[], applied: false, ippatsu: false, haitei: false, rinshan: false, chankan: false, honba: 0, kyotaku: 0, kuitan: true, kiriage: false });
 type St = ReturnType<typeof init>;
 let S: St = init(); let res: Result | Fail | null = null, stale = false, busy = false;
 const hist: string[] = [];
@@ -52,7 +56,7 @@ const used = (s: St) => { const u = Array<number>(34).fill(0); s.hand.forEach((t
 const cap = (s: St) => 14 - 3 * s.melds.length;
 const winUid = (s: St) => (s.hand.some((t) => t.uid === s.win) ? s.win : Math.max(-1, ...s.hand.map((t) => t.uid)));
 const snap = () => JSON.stringify(S);
-function mut(f: () => void) { hist.push(snap()); if (hist.length > 60) hist.shift(); f(); if (res) stale = true; render(); }
+function mut(f: () => void) { hist.push(snap()); if (hist.length > 60) hist.shift(); S.applied = false; f(); if (res) stale = true; render(); }
 const sortHand = () => S.hand.sort((a, b) => a.id - b.id || +a.aka - +b.aka || a.uid - b.uid);
 const chip = (a: string, v: string, label: string, on = false, dis = false) =>
   `<button class="btn" data-a="${a}" data-v="${v}" aria-pressed="${on}" ${dis ? 'disabled' : ''}>${label}</button>`;
@@ -60,7 +64,8 @@ const tb = (a: string, v: string, id: number, aka: boolean, dis: boolean) => `<b
 const mini = (ids: number[], aka = false) => `<span class="row g mini">${ids.map((id) => `<span class="tile" role="img" aria-label="${name(id, aka)}">${face(id, aka)}</span>`).join('')}</span>`;
 const meldIds = (m: M) => (m.type === 'chi' ? [m.id, m.id + 1, m.id + 2] : Array<number>(m.type === 'pon' ? 3 : 4).fill(m.id));
 
-function render() {
+let psetOpen = false, histOpen = false;
+function render(skipPset = false) {
   const n = S.hand.length, c = cap(S), wu = winUid(S), u = used(S), diff = c - n;
   const stTxt = diff > 0 ? `あと${diff}枚入力` : diff < 0 ? `${-diff}枚多い（削除してください）` : '枚数OK ✓';
   $('hand').innerHTML = `<h2><span class="n">①</span>手牌 <span class="status ${diff === 0 ? 'good' : diff < 0 ? 'bad' : ''}">${n}/${c}枚 ${stTxt}</span></h2>
@@ -82,15 +87,17 @@ function render() {
 ${mode === 'meld' ? `<div class="row" style="margin-bottom:6px">${(Object.keys(MN) as MeldType[]).map((k) => chip('mtype', k, MN[k], S.mtype === k)).join('')}${chip('maka', '', '赤5を含む', S.maka)}</div>` : ''}${rows}${redBtns}${ind('dora')}${ind('ura')}`;
   const r2 = (a: string, vals: [string, string][], cur: string, dsb = false) => `<div class="row">${vals.map(([v, l]) => chip(a, v, l, cur === v, dsb)).join('')}</div>`;
   const step = (k: string, v: number) => `<span class="step">${chip('step', `${k}:-1`, '−', false, v <= 0)}<span>${v}</span>${chip('step', `${k}:1`, '＋')}</span>`;
+  const wp = find(S.players, S.winner)!;
   $('cond').innerHTML = `<h2><span class="n">③</span>和了条件</h2>
 <h3>和了方法</h3>${r2('tsumo', [['0', 'ロン'], ['1', 'ツモ']], S.tsumo ? '1' : '0')}
-<h3>自風（東＝親）</h3>${r2('sw', [['0', '東(親)'], ['1', '南'], ['2', '西'], ['3', '北']], String(S.sw))}
+<h3>和了者（座席から自風・親を自動判定）</h3>${r2('winner', bySeat(S.players).map((q): [string, string] => [String(q.id), `${SEAT_NAMES[q.seat]} ${lbl(q)}`]), String(S.winner))}<p class="mu" style="margin:4px 0 0">自風：${SEAT_NAMES[wp.seat]}（${wp.seat === 0 ? '親' : '子'}）</p>
+<h3>放銃者（ロンのとき）</h3>${r2('disc', bySeat(S.players).filter((q) => q.id !== S.winner).map((q): [string, string] => [String(q.id), `${SEAT_NAMES[q.seat]} ${lbl(q)}`]), String(S.discarder), S.tsumo)}
 <h3>場風</h3>${r2('rw', [['0', '東場'], ['1', '南場']], String(S.rw))}
-<h3>立直・状況役</h3><div class="row">${chip('riichi', S.riichi === 1 ? '0' : '1', 'リーチ', S.riichi === 1)}${chip('riichi', S.riichi === 2 ? '0' : '2', 'ダブルリーチ', S.riichi === 2)}${chip('flag', 'ippatsu', '一発', S.ippatsu, !S.riichi)}${chip('flag', 'haitei', S.tsumo ? '海底' : '河底', S.haitei)}${chip('flag', 'rinshan', '嶺上開花', S.rinshan, !S.tsumo)}${chip('flag', 'chankan', '槍槓', S.chankan, S.tsumo)}</div>
+<h3>立直・状況役</h3><div class="row">${chip('riichi', wp.riichi === 1 ? '0' : '1', 'リーチ', wp.riichi === 1)}${chip('riichi', wp.riichi === 2 ? '0' : '2', 'ダブルリーチ', wp.riichi === 2)}${chip('flag', 'ippatsu', '一発', S.ippatsu, !wp.riichi)}${chip('flag', 'haitei', S.tsumo ? '海底' : '河底', S.haitei)}${chip('flag', 'rinshan', '嶺上開花', S.rinshan, !S.tsumo)}${chip('flag', 'chankan', '槍槓', S.chankan, S.tsumo)}</div>
 <h3>本場・供託(本)</h3><div class="row"><span class="step"><b>本場</b>${step('honba', S.honba)}</span><span class="step"><b>供託</b>${step('kyotaku', S.kyotaku)}</span></div>
 <details><summary>ルール設定</summary><div class="row">${chip('rule', 'kuitan', '喰いタンあり', S.kuitan)}${chip('rule', 'kiriage', '切り上げ満貫', S.kiriage)}</div></details>`;
   $('calc').innerHTML = `<button class="primary" data-a="calc" ${n === 0 || busy ? 'disabled' : ''}>${busy ? '計算中…' : res && !stale ? '再計算する' : '計算する'}</button>${n === 0 ? '<p class="mu" style="margin:4px 0 0;text-align:center">まず手牌を入力してください</p>' : ''}`;
-  renderRes();
+  renderTable(); if (!skipPset) renderPset(); renderHist(); renderRes();
 }
 const HINT: [RegExp, string][] = [[/^手牌は/, '手牌の枚数を指定枚数に合わせてください（牌の追加／削除。鳴きがある場合は手牌が3枚ずつ減ります）'],
   [/役がありません/, 'リーチ・ツモなどの条件を足すか、役のある手牌に変更してください（ドラだけでは和了できません）'], [/5枚以上/, '同じ牌は4枚までです。余分な牌を削除してください'],
@@ -115,6 +122,36 @@ ${ym ? '' : [['ドラ', r.dora], ['裏ドラ', r.uraDora], ['赤ドラ', r.akaDo
 ${ym ? '' : `<tr class="tot"><td>合計（役${r.yakuHan}＋ドラ類${r.totalHan - r.yakuHan}）</td><td>${r.totalHan}飜</td></tr>`}</table>
 ${ym ? '' : `<p class="mu">${r.limit && r.limit !== '満貫' || r.base === 2000 ? `${r.limit}のため基本点 ${fmt(r.base)}` : `基本点 = ${r.fu}符 × 2^(${r.totalHan}+2) = ${fmt(r.base)}`}</p>
 <details><summary>符の内訳（${r.fu}符）</summary><table>${r.fuBreakdown.map((f) => ex(f.n, `${f.f}符`)).join('')}<tr class="tot"><td>合計 ${sum} → 10符単位に切り上げ</td><td>${r.fu}符</td></tr></table></details>`}`;
+  el.innerHTML += settleBlock(r);
+}
+function settleBlock(r: Result): string {
+  const st = settle(S.players, S.winner, S.tsumo ? null : S.discarder || null, S.tsumo, r, S.kyotaku);
+  if (!st.ok) return `<h3>点数移動</h3><div class="box err" role="alert"><b>⚠ ${st.error}</b><p class="fix">💡 直し方：③和了条件で選んでください（計算結果の点数は変わりません）</p></div>`;
+  const nm = (id: number | null) => (id == null ? '場' : lbl(find(S.players, id)!));
+  const K: Record<Transfer['kind'], string> = { pay: '支払い', riichi: 'リーチ棒', kyotaku: '場の供託' };
+  return `<h3>点数移動（反映前の確認）</h3><table>${st.transfers.map((t) => `<tr><td class="wrap">${nm(t.from)} → ${nm(t.to)} <span class="mu">（${K[t.kind]}）</span></td><td>${fmt(t.amount)}点</td></tr>`).join('')}</table>
+<button class="primary sub" data-a="apply" ${S.applied || stale ? 'disabled' : ''}>${S.applied ? '✓ 卓に反映済み' : 'この結果を卓に反映する'}</button>`;
+}
+function renderTable() {
+  const rk = ranks(S.players);
+  $('table').innerHTML = `<div class="tbl" role="list" aria-label="卓">${bySeat(S.players).map((q) => `<div class="pc ${q.id === S.winner ? 'w' : ''}" role="listitem" aria-label="${SEAT_NAMES[q.seat]}家 ${lbl(q)} ${q.points}点 ${rk[q.id]}位">
+<div class="ps"><b>${SEAT_NAMES[q.seat]}</b>${q.seat === 0 ? '<span class="bg">親</span>' : ''}${q.id === S.winner ? '<span class="bg">和了</span>' : ''}${!S.tsumo && S.discarder === q.id ? '<span class="bg">放銃</span>' : ''}</div>
+<div class="pn" title="${lbl(q)}">${lbl(q)}</div><div class="pp">${fmt(q.points)}</div>
+<div class="pr">${rk[q.id]}位${q.riichi ? ` <span class="bg">${q.riichi === 2 ? 'W立直' : '立直'}</span>` : ''}${q.id === S.winner && S.melds.length ? ` <span class="bg">副露${S.melds.length}</span>` : ''}</div></div>`).join('')}</div>`;
+}
+function renderPset() {
+  const rows = bySeat(S.players).map((q) => `<div class="prow"><label class="pf">名前（空欄は「${DEFAULT_NAMES[q.seat]}」）<input type="text" data-c="name" data-id="${q.id}" value="${esc(q.name)}" placeholder="${DEFAULT_NAMES[q.seat]}" maxlength="16" autocomplete="off"></label>
+<label>座席<select data-c="seat" data-id="${q.id}">${SEAT_NAMES.map((n, i) => `<option value="${i}" ${i === q.seat ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+<label>持ち点<input type="number" inputmode="numeric" step="100" data-c="pts" data-id="${q.id}" value="${q.points}"></label>
+<div class="row pf"><button class="btn" data-a="mv" data-v="${q.id}:-1" aria-label="${lbl(q)}を前の席へ" ${q.seat === 0 ? 'disabled' : ''}>↑ 前の席</button><button class="btn" data-a="mv" data-v="${q.id}:1" aria-label="${lbl(q)}を次の席へ" ${q.seat === 3 ? 'disabled' : ''}>↓ 次の席</button>${chip('rii', String(q.id), '立直中', q.riichi > 0)}</div></div>`).join('');
+  $('pset').innerHTML = `<details data-k="pset" ${psetOpen ? 'open' : ''}><summary>プレイヤー設定（名前・座席・持ち点）</summary><p class="mu">座席を変えると、その席の人と入れ替わります（点数・立直は本人に付いたまま）。</p>${rows}<div class="row" style="margin-top:8px">${chip('tableReset', '', '卓を初期化（名前・座席・点数・履歴）')}</div></details>`;
+}
+function renderHist() {
+  const nm = (id: number) => { const q = find(S.players, id); return q ? lbl(q) : '?'; };
+  const rk = ranks(S.players);
+  const st = bySeat(S.players).map((q) => `<tr><td class="wrap">${SEAT_NAMES[q.seat]} ${lbl(q)}</td><td>${rk[q.id]}位</td><td>和了${S.history.filter((h) => h.winner === q.id).length}／放銃${S.history.filter((h) => h.discarder === q.id).length}</td><td>${fmt(q.points)}</td></tr>`).join('');
+  const hs = [...S.history].reverse().map((h) => `<tr><td class="wrap">#${h.n} ${nm(h.winner)}（${SEAT_NAMES[h.seatW]}家）${h.tsumo ? 'ツモ' : `ロン ← ${nm(h.discarder)}（${SEAT_NAMES[h.seatD]}家）`} ${h.limit || `${h.han}飜${h.fu}符`} ${fmt(h.score)}点<br><span class="mu">${Object.entries(h.deltas).filter(([, d]) => d).map(([id, d]) => `${nm(+id)} ${d > 0 ? '+' : ''}${fmt(d)}`).join('、')}</span></td></tr>`).join('');
+  $('hist').innerHTML = `<details data-k="hist" ${histOpen ? 'open' : ''}><summary>履歴・成績（${S.history.length}局）</summary><h3>成績</h3><table>${st}</table><h3>履歴</h3>${S.history.length ? `<table>${hs}</table>` : '<p class="mu">まだありません。結果を「卓に反映」すると記録されます。</p>'}</details>`;
 }
 function act(a: string, v: string) {
   const [k, x] = v.split(':');
@@ -128,7 +165,7 @@ function act(a: string, v: string) {
     case 'del': mut(() => { S.hand = S.hand.filter((t) => t.uid !== S.sel); S.sel = -1; }); break;
     case 'delLast': mut(() => { const mx = Math.max(...S.hand.map((t) => t.uid)); S.hand = S.hand.filter((t) => t.uid !== mx); S.sel = -1; }); break;
     case 'clear': mut(() => { S.hand = []; S.melds = []; S.sel = -1; S.win = -1; }); break;
-    case 'reset': mut(() => { const u = S.uid; S = init(); S.uid = u; res = null; stale = false; }); break;
+    case 'reset': mut(() => { const u = S.uid, pl = S.players, hs = S.history, w = S.winner; S = init(); S.uid = u; S.players = pl; S.history = hs; S.winner = w; res = null; stale = false; }); break;
     case 'undo': { const p = hist.pop(); if (p) { S = JSON.parse(p); if (res) stale = true; render(); } break; }
     case 'delMeld': mut(() => { S.melds.splice(+k, 1); }); break;
     case 'delInd': mut(() => { S[k as 'dora' | 'ura'].splice(+x, 1); }); break;
@@ -136,9 +173,20 @@ function act(a: string, v: string) {
     case 'mtype': S.mtype = k as MeldType; render(); break;
     case 'maka': S.maka = !S.maka; render(); break;
     case 'tsumo': mut(() => { S.tsumo = k === '1'; if (S.tsumo) S.chankan = false; else S.rinshan = false; }); break;
-    case 'sw': mut(() => { S.sw = +k; }); break;
+    case 'winner': mut(() => { S.winner = +k; if (S.discarder === S.winner) S.discarder = 0; if (!find(S.players, S.winner)!.riichi) S.ippatsu = false; }); break;
+    case 'disc': mut(() => { S.discarder = S.discarder === +k ? 0 : +k; }); break;
+    case 'rii': mut(() => { const q = find(S.players, +k)!; q.riichi = q.riichi ? 0 : 1; if (q.id === S.winner && !q.riichi) S.ippatsu = false; }); break;
+    case 'mv': mut(() => { S.players = moveSeat(S.players, +k, +x as 1 | -1); }); break;
+    case 'tableReset': mut(() => { S.players = newPlayers(); S.history = []; S.winner = 2; S.discarder = 0; }); break;
+    case 'apply': {
+      if (!res || !res.ok || stale || S.applied) break;
+      const disc = S.tsumo ? null : S.discarder || null;
+      const st = settle(S.players, S.winner, disc, S.tsumo, res, S.kyotaku); if (!st.ok) break;
+      hist.push(snap()); const wq = find(S.players, S.winner)!, dq = disc ? find(S.players, disc) : undefined;
+      S.history.push({ n: S.history.length + 1, winner: S.winner, seatW: wq.seat, discarder: disc ?? 0, seatD: dq?.seat ?? -1, tsumo: S.tsumo, limit: res.limit, score: res.score, han: res.totalHan, fu: res.fu, deltas: st.deltas });
+      S.players = applyDeltas(S.players, st.deltas); S.kyotaku = 0; S.applied = true; render(); break; }
     case 'rw': mut(() => { S.rw = +k; }); break;
-    case 'riichi': mut(() => { S.riichi = +k; if (!S.riichi) S.ippatsu = false; }); break;
+    case 'riichi': mut(() => { const q = find(S.players, S.winner)!; q.riichi = +k as 0 | 1 | 2; if (!q.riichi) S.ippatsu = false; }); break;
     case 'flag': mut(() => { const f = k as 'ippatsu' | 'haitei' | 'rinshan' | 'chankan'; S[f] = !S[f]; }); break;
     case 'step': mut(() => { const f = k as 'honba' | 'kyotaku'; S[f] = Math.max(0, S[f] + +x); }); break;
     case 'rule': mut(() => { const f = k as 'kuitan' | 'kiriage'; S[f] = !S[f]; }); break;
@@ -146,13 +194,24 @@ function act(a: string, v: string) {
   }
 }
 function calc() {
+  const wq = find(S.players, S.winner)!, ctx = winContext(S.players, S.winner)!;
   const wu = winUid(S), wt = S.hand.find((t) => t.uid === wu);
   const aka = S.hand.filter((t) => t.aka).length + S.melds.reduce((a, m) => a + m.aka, 0);
   const r = calculateScore({ closed: S.hand.map((t) => t.id), melds: S.melds.map((m) => ({ type: m.type, tile: m.id })), winTile: wt ? wt.id : -1, aka },
     { kuitan: S.kuitan, kiriage: S.kiriage, uraDora: true },
-    { tsumo: S.tsumo, dealer: S.sw === 0, roundWind: 27 + S.rw, seatWind: 27 + S.sw, riichi: S.riichi as 0 | 1 | 2, ippatsu: S.ippatsu, haitei: S.haitei,
+    { tsumo: S.tsumo, dealer: ctx.dealer, roundWind: 27 + S.rw, seatWind: ctx.seatWind, riichi: wq.riichi, ippatsu: S.ippatsu, haitei: S.haitei,
       rinshan: S.rinshan, chankan: S.chankan, tenhou: false, chiihou: false, doraInd: S.dora, uraInd: S.ura, honba: S.honba, kyotaku: S.kyotaku });
   res = r; stale = false; busy = false; render(); $('res').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 document.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest('[data-a]') as HTMLElement | null; if (b && !(b as HTMLButtonElement).disabled) act(b.dataset.a!, b.dataset.v ?? ''); });
+let nameSnap = '';
+document.addEventListener('focusin', (e) => { if ((e.target as HTMLElement).dataset?.c) nameSnap = snap(); });
+document.addEventListener('input', (e) => { const t = e.target as HTMLInputElement; if (t.dataset?.c === 'name') { const q = find(S.players, +t.dataset.id!); if (q) { q.name = t.value.slice(0, 16); render(true); } } });
+document.addEventListener('change', (e) => {
+  const t = e.target as HTMLInputElement | HTMLSelectElement; const c = t.dataset?.c; if (!c) return; const id = +t.dataset.id!;
+  if (c === 'name') { if (nameSnap && nameSnap !== snap()) { hist.push(nameSnap); if (hist.length > 60) hist.shift(); } render(); }
+  else if (c === 'seat') mut(() => { S.players = setSeat(S.players, id, +t.value); });
+  else if (c === 'pts') mut(() => { const q = find(S.players, id)!, n = Math.round(+t.value); q.points = Number.isFinite(n) ? Math.max(-999999, Math.min(999999, n)) : q.points; });
+});
+document.addEventListener('toggle', (e) => { const d = e.target as HTMLDetailsElement; if (d.dataset?.k === 'pset') psetOpen = d.open; if (d.dataset?.k === 'hist') histOpen = d.open; }, true);
 render();
