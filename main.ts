@@ -10,8 +10,43 @@ let S: St = init(); let res: Result | Fail | null = null, stale = false, busy = 
 const hist: string[] = [];
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 const fmt = (n: number) => n.toLocaleString('ja-JP');
-const tcls = (id: number) => (id < 27 ? `t${(id / 9) | 0}` : 't3');
-const face = (id: number, aka = false) => `<b>${id < 27 ? (id % 9) + 1 : HZ[id - 27]}</b><i>${id < 27 ? (aka ? '赤' : '') + SUIT[(id / 9) | 0] : '&nbsp;'}</i>`;
+const INK = '#1b1f24', RD = '#c0392b', BL = '#1f5fbf', GR = '#1d7a46', IV = '#fbf8ee';
+const KN = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+const SER = "'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP','Noto Serif CJK JP',serif";
+const name = (id: number, aka = false) => (id < 27 ? `${aka ? '赤' : ''}${KN[id % 9]}${SUIT[(id / 9) | 0]}` : HZ[id - 27]);
+const tx = (t: string, x: number, y: number, sz: number, c: string) => `<text x="${x}" y="${y}" font-size="${sz}" font-weight="700" fill="${c}" text-anchor="middle" font-family="${SER}">${t}</text>`;
+const dot = (x: number, y: number, r: number, c: string) => `<circle cx="${x}" cy="${y}" r="${r - 1.2}" fill="none" stroke="${c}" stroke-width="2.4"/><circle cx="${x}" cy="${y}" r="${(r * 0.45).toFixed(1)}" fill="none" stroke="${c}" stroke-width="1.3"/><circle cx="${x}" cy="${y}" r="${(r * 0.16).toFixed(1)}" fill="${c}"/>`;
+const stick = (x: number, y: number, h: number, k: string, w = 5) => `<rect x="${x - w / 2}" y="${y}" width="${w}" height="${h}" rx="${w / 2}" fill="${k}"/><path d="M${x - w / 2} ${y + h / 2}h${w}M${x - w / 2} ${y + 3}h${w}M${x - w / 2} ${y + h - 3}h${w}" stroke="${IV}" stroke-width=".9"/>`;
+type P = [number, number, number, string];
+const PIN: P[][] = [[],
+  [[20, 15, 9, GR], [20, 41, 9, BL]], [[11, 13, 7, BL], [20, 28, 7, RD], [29, 43, 7, GR]],
+  [[12, 16, 7.5, BL], [28, 16, 7.5, GR], [12, 40, 7.5, GR], [28, 40, 7.5, BL]],
+  [[12, 16, 7.5, BL], [28, 16, 7.5, GR], [20, 28, 7.5, RD], [12, 40, 7.5, GR], [28, 40, 7.5, BL]],
+  [[12, 12, 6, GR], [28, 12, 6, GR], [12, 31, 6, RD], [28, 31, 6, RD], [12, 45, 6, RD], [28, 45, 6, RD]],
+  [[9, 10, 5, GR], [20, 16, 5, GR], [31, 22, 5, GR], [12, 37, 5.5, RD], [28, 37, 5.5, RD], [12, 49, 5.5, RD], [28, 49, 5.5, RD]],
+  [12, 28].flatMap((x) => [10, 22, 34, 46].map((y): P => [x, y, 5.5, BL])),
+  [9, 20, 31].flatMap((x, i) => [12, 28, 44].map((y, j): P => [x, y, 5, [GR, RD, BL][j] ?? GR + i]))];
+type St2 = [number, number, number, string, number?];
+const col = (xs: number[], rows: [number, number][], ks: string[], w?: number) => xs.flatMap((x, i) => rows.map(([y, h], j): St2 => [x, y, h, ks[(i + j) % ks.length], w]));
+const SOU: St2[][] = [
+  [[20, 5, 20, GR], [20, 31, 20, BL]], [[20, 5, 20, GR], [13, 31, 20, BL], [27, 31, 20, BL]],
+  col([12, 28], [[5, 21], [30, 21]], [GR, BL]), [...col([11, 29], [[5, 21], [30, 21]], [GR, BL]), [20, 17, 22, RD]],
+  col([10, 20, 30], [[5, 21], [30, 21]], [GR, BL]),
+  [[20, 4, 16, RD], ...col([10, 20, 30], [[24, 13], [40, 13]], [GR, BL])],
+  col([9, 17, 25, 33], [[5, 21], [30, 21]], [GR, BL], 4.5),
+  [[10, 3, 14, GR], [10, 21, 14, GR], [10, 39, 14, GR], [20, 3, 14, RD], [20, 21, 14, RD], [20, 39, 14, RD], [30, 3, 14, BL], [30, 21, 14, BL], [30, 39, 14, BL]]];
+const bird = (c: (k: string) => string) => `<path d="M14 36Q8 50 14 54Q18 48 20 40Z" fill="${c(GR)}"/><path d="M20 38Q22 50 28 53Q27 46 25 38Z" fill="${c(BL)}"/><ellipse cx="22" cy="30" rx="9" ry="11" fill="${c(GR)}"/><ellipse cx="19" cy="31" rx="4" ry="7" fill="${c(BL)}"/><circle cx="27" cy="17" r="5.5" fill="${c(GR)}"/><path d="M31.5 16L37 18L31.5 20Z" fill="${RD}"/><circle cx="28.5" cy="15.5" r="1.2" fill="#fff"/><path d="M24 12Q22 5 26 7M27 11Q27 4 30 6" stroke="${RD}" stroke-width="1.5" fill="none"/>`;
+function face(id: number, aka = false): string {
+  const c = (k: string) => (aka ? RD : k); let g = '';
+  if (id < 27) {
+    const s = (id / 9) | 0, n = (id % 9) + 1;
+    if (s === 0) g = tx(KN[n - 1], 20, 26, 22, aka ? RD : INK) + tx('萬', 20, 49, 19, RD);
+    else if (s === 1) g = n === 1 ? `<circle cx="20" cy="28" r="14" fill="none" stroke="${c(BL)}" stroke-width="2.6"/><circle cx="20" cy="28" r="9" fill="none" stroke="${c(RD)}" stroke-width="2"/><circle cx="20" cy="28" r="4.5" fill="${c(GR)}"/>` : PIN[n - 1].map(([x, y, r, k]) => dot(x, y, r, c(k))).join('');
+    else g = n === 1 ? bird(c) : SOU[n - 2].map(([x, y, h, k, w]) => stick(x, y, h, c(k), w)).join('');
+  } else { const k = id - 27; g = k === 4 ? `<rect x="9" y="11" width="22" height="34" rx="2" fill="none" stroke="#4a6fa5" stroke-width="2.2"/>` : tx(HZ[k], 20, 38, 28, k === 5 ? GR : k === 6 ? RD : INK); }
+  const body = aka ? `<g transform="translate(5.6 14) scale(.72)">${g}</g><rect x="2" y="2" width="36" height="10" rx="3" fill="${RD}"/>${tx('赤', 20, 10.6, 10, '#fff')}` : g;
+  return `<svg viewBox="0 0 40 56" aria-hidden="true" focusable="false"><rect x="1" y="1" width="38" height="54" rx="5" fill="${IV}" stroke="${aka ? RD : '#8a8576'}" stroke-width="${aka ? 2.5 : 1.5}"/>${body}</svg>`;
+}
 const used = (s: St) => { const u = Array<number>(34).fill(0); s.hand.forEach((t) => u[t.id]++);
   s.melds.forEach((m) => { const n = m.type === 'chi' ? 0 : m.type === 'pon' ? 3 : 4; if (m.type === 'chi') [0, 1, 2].forEach((k) => u[m.id + k]++); else u[m.id] += n; }); return u; };
 const cap = (s: St) => 14 - 3 * s.melds.length;
@@ -21,15 +56,15 @@ function mut(f: () => void) { hist.push(snap()); if (hist.length > 60) hist.shif
 const sortHand = () => S.hand.sort((a, b) => a.id - b.id || +a.aka - +b.aka || a.uid - b.uid);
 const chip = (a: string, v: string, label: string, on = false, dis = false) =>
   `<button class="btn" data-a="${a}" data-v="${v}" aria-pressed="${on}" ${dis ? 'disabled' : ''}>${label}</button>`;
-const tb = (a: string, v: string, id: number, aka: boolean, dis: boolean) => `<button class="tile ${tcls(id)} ${aka ? 'red' : ''}" data-a="${a}" data-v="${v}" aria-label="${aka ? '赤' : ''}${face(id).replace(/<[^>]+>/g, '')}" ${dis ? 'disabled' : ''}>${face(id, aka)}</button>`;
-const mini = (ids: number[], aka = false) => `<span class="row g mini">${ids.map((id) => `<span class="tile ${tcls(id)} ${aka ? 'red' : ''}">${face(id, aka)}</span>`).join('')}</span>`;
+const tb = (a: string, v: string, id: number, aka: boolean, dis: boolean) => `<button class="tile" data-a="${a}" data-v="${v}" aria-label="${name(id, aka)}" title="${name(id, aka)}" ${dis ? 'disabled' : ''}>${face(id, aka)}</button>`;
+const mini = (ids: number[], aka = false) => `<span class="row g mini">${ids.map((id) => `<span class="tile" role="img" aria-label="${name(id, aka)}">${face(id, aka)}</span>`).join('')}</span>`;
 const meldIds = (m: M) => (m.type === 'chi' ? [m.id, m.id + 1, m.id + 2] : Array<number>(m.type === 'pon' ? 3 : 4).fill(m.id));
 
 function render() {
   const n = S.hand.length, c = cap(S), wu = winUid(S), u = used(S), diff = c - n;
   const stTxt = diff > 0 ? `あと${diff}枚入力` : diff < 0 ? `${-diff}枚多い（削除してください）` : '枚数OK ✓';
   $('hand').innerHTML = `<h2><span class="n">①</span>手牌 <span class="status ${diff === 0 ? 'good' : diff < 0 ? 'bad' : ''}">${n}/${c}枚 ${stTxt}</span></h2>
-<div class="row g hand tiles ${diff < 0 ? 'err' : ''}">${n ? S.hand.map((t) => `<button class="tile ${tcls(t.id)} ${t.aka ? 'red' : ''} ${S.sel === t.uid ? 'sel' : ''} ${t.uid === wu ? 'win' : ''}" data-a="sel" data-v="${t.uid}" aria-pressed="${S.sel === t.uid}">${face(t.id, t.aka)}<span class="badge">${t.uid === wu ? '和了牌' : '&nbsp;'}</span></button>`).join('') : '<span class="empty">下の「② 牌を選ぶ」から牌をタップして入力</span>'}</div>
+<div class="row g hand tiles ${diff < 0 ? 'err' : ''}">${n ? S.hand.map((t) => `<button class="tile ${S.sel === t.uid ? 'sel' : ''} ${t.uid === wu ? 'win' : ''}" data-a="sel" data-v="${t.uid}" aria-pressed="${S.sel === t.uid}" aria-label="${name(t.id, t.aka)}${t.uid === wu ? '（和了牌）' : ''}">${face(t.id, t.aka)}<span class="badge">${t.uid === wu ? '和了牌' : '&nbsp;'}</span></button>`).join('') : '<span class="empty">下の「② 牌を選ぶ」から牌をタップして入力</span>'}</div>
 <p class="mu" style="margin:6px 0">${S.sel >= 0 ? '選んだ牌を操作：' : '牌をタップで選択（和了牌の指定・削除）。最後に入れた牌が和了牌になります。'}</p>
 <div class="row">${chip('win', '', '和了牌にする', false, S.sel < 0)}${chip('del', '', '選んだ牌を削除', false, S.sel < 0)}${chip('undo', '', '↩ 元に戻す', false, !hist.length)}${chip('delLast', '', '1枚削除', false, !n)}${chip('clear', '', '手牌を全消去', false, !n && !S.melds.length)}${chip('reset', '', 'すべてリセット')}</div>
 <h3>副露（鳴き）— 手牌とは別枠</h3><div class="row">${S.melds.length ? S.melds.map((m, i) => `<span class="meld"><b>${MN[m.type]}</b>${mini(meldIds(m))}<button class="btn" style="min-height:36px" data-a="delMeld" data-v="${i}" aria-label="${MN[m.type]}を削除">✕</button></span>`).join('') : '<span class="mu">なし（門前）</span>'}</div>`;
@@ -38,11 +73,11 @@ function render() {
   const dis = (id: number) => mode === 'hand' ? full || u[id] >= 4 : mode === 'meld' ? !meldOk(id) : false;
   const meldOk = (id: number) => S.melds.length < 4 && (S.mtype === 'chi' ? id < 27 && id % 9 <= 6 && [0, 1, 2].every((k) => u[id + k] < 4) : S.mtype === 'pon' ? u[id] <= 1 : u[id] === 0);
   let rows = '';
-  for (let s = 0; s < 3; s++) rows += `<div class="pal">${Array.from({ length: 9 }, (_, i) => tb('add', `${s * 9 + i}:0`, s * 9 + i, false, dis(s * 9 + i))).join('')}</div>`;
-  rows += `<div class="pal" style="margin-top:4px">${Array.from({ length: 7 }, (_, i) => tb('add', `${27 + i}:0`, 27 + i, false, dis(27 + i))).join('')}</div>`;
+  for (let s = 0; s < 3; s++) rows += `<h3>${['萬子', '筒子', '索子'][s]}</h3><div class="pal">${Array.from({ length: 9 }, (_, i) => tb('add', `${s * 9 + i}:0`, s * 9 + i, false, dis(s * 9 + i))).join('')}</div>`;
+  rows += `<h3>字牌</h3><div class="pal">${Array.from({ length: 7 }, (_, i) => tb('add', `${27 + i}:0`, 27 + i, false, dis(27 + i))).join('')}</div>`;
   const redBtns = mode === 'hand' ? `<h3>赤5</h3><div class="pal">${[4, 13, 22].map((id) => tb('add', `${id}:1`, id, true, full || u[id] >= 4 || S.hand.some((t) => t.id === id && t.aka))).join('')}</div>` : '';
   const hint = { hand: '牌をタップして手牌に追加', meld: '鳴きの種類を選び、牌をタップ（チーは一番小さい牌）', dora: 'ドラ表示牌をタップ（最大5枚）', ura: '裏ドラ表示牌をタップ（立直時のみ有効・最大5枚）' }[mode];
-  const ind = (k: 'dora' | 'ura') => S[k].length ? `<h3>${k === 'dora' ? 'ドラ表示牌' : '裏ドラ表示牌'}</h3><div class="row">${S[k].map((id, i) => `<button class="tile ${tcls(id)}" style="width:36px;height:50px" data-a="delInd" data-v="${k}:${i}" aria-label="削除">${face(id)}</button>`).join('')}<span class="mu" style="align-self:center">タップで削除</span></div>` : '';
+  const ind = (k: 'dora' | 'ura') => S[k].length ? `<h3>${k === 'dora' ? 'ドラ表示牌' : '裏ドラ表示牌'}</h3><div class="row">${S[k].map((id, i) => `<button class="tile" style="width:36px" data-a="delInd" data-v="${k}:${i}" aria-label="${name(id)}を削除">${face(id)}</button>`).join('')}<span class="mu" style="align-self:center">タップで削除</span></div>` : '';
   $('pal').innerHTML = `<h2><span class="n">②</span>牌を選ぶ</h2><div class="row">${modes.map(([k, l]) => chip('mode', k, l, mode === k)).join('')}</div><p class="mu" style="margin:6px 0">${hint}</p>
 ${mode === 'meld' ? `<div class="row" style="margin-bottom:6px">${(Object.keys(MN) as MeldType[]).map((k) => chip('mtype', k, MN[k], S.mtype === k)).join('')}${chip('maka', '', '赤5を含む', S.maka)}</div>` : ''}${rows}${redBtns}${ind('dora')}${ind('ura')}`;
   const r2 = (a: string, vals: [string, string][], cur: string, dsb = false) => `<div class="row">${vals.map(([v, l]) => chip(a, v, l, cur === v, dsb)).join('')}</div>`;
